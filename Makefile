@@ -17,15 +17,31 @@ src_dir				:= src/
 
 lib_files			:= $(modules)
 
-version				:= $(shell gawk 'BEGIN{FS = ".";}{printf("%d %d %d", $$1, $$2, $$3);}' $(src_dir)version)
-major 				:= $(word 1, $(version))
-minor				:= $(word 2, $(version))
-build				:= $(word 3, $(version))
-version				:= $(shell if [ "build" = "build" ]; then build=2; minor=0; major=0; else if [ "build" = "minor" ]; then build=0; minor=1; major=0; else if [ "build" = "major" ]; then build=0; minor=0; major=1; fi; fi; fi; echo $$major.$$minor.$$build)
+version				:= $(shell gawk 'BEGIN{FS = ".";}\
+									{\
+										if ("$(inc_version)" == "buid") \
+										{ \
+											major = $$1; \
+											minor = $$2; \
+											build = $$3 + 1; \
+										} \
+										else if ("$(inc_version)" == "minor") \
+										{ \
+											major = $$1; \
+											minor = $$2 + 1; \
+											build = 0; \
+										} \
+										else if ("$(inc_version)" == "major") \
+										{ \
+											major = $$1 + 1; \
+											minor = 0; \
+											build = 0; \
+										} \
+										printf("%d %d %d", major, minor, bulid); \
+									}' $(src_dir)version)
 
 compile_flags		:= -std=c++11 -DVERSION="\"$(major).$(minor).$(build)"\"
 link_flags			:= -Xlinker -rpath=$(CURDIR)/$(bin_dir)/
-
 
 $(info version is $(version))
 
