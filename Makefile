@@ -7,54 +7,50 @@ build_type			:= debug
 bin_dir				:= bin
 
 #version major.minor.build
-inc_version			:= build
+inc_version			:= none
 
-modules				:= #class
+modules				:= server
 
 # ===================================
 
 src_dir				:= src/
+obj_dir				:= obj/$(build_type)/
 
 lib_files			:= $(modules)
 
 version				:= $(shell gawk 'BEGIN{FS = ".";}\
-									{\
-										if ("'$(inc_version)'" == "build") \
-										{ \
-											major = $$1; \
-											minor = $$2; \
-											build = $$3 + 1; \
-										} \
-										else if ("'$(inc_version)'" == "minor") \
-										{ \
-											major = $$1; \
-											minor = $$2 + 1; \
-											build = 0; \
-										} \
-										else if ("'$(inc_version)'" == "major") \
-										{ \
-											major = $$1 + 1; \
-											minor = 0; \
-											build = 0; \
-										} \
-										printf("%d.%d.%d", major, minor, build); \
-									}' $(src_dir)version)
-
-$(info Ver = $(version))
+					                {\
+										major = $$1; \
+										minor = $$2; \
+										build = $$3; \
+					                    if ("'$(inc_version)'" == "build") \
+					                    { \
+					                        build = $$3 + 1; \
+					                    } \
+					                    else if ("'$(inc_version)'" == "minor") \
+					                    { \
+					                        minor = $$2 + 1; \
+					                        build = 0; \
+					                    } \
+					                    else if ("'$(inc_version)'" == "major") \
+					                    { \
+					                        major = $$1 + 1; \
+					                        minor = 0; \
+					                        build = 0; \
+					                    } \
+					                    printf("%d.%d.%d", major, minor, build); \
+					                }' $(src_dir)version)
 
 compile_flags		:= -std=c++11 -DVERSION="\"$(version)"\"
 link_flags			:= -Xlinker -rpath=$(CURDIR)/$(bin_dir)/
 
 ifeq ($(build_type), debug)
 	project			:= $(addsuffix _debug, $(project))
-	obj_dir			:= obj/Debug/
 	lib_files		:= $(addsuffix _debug, $(lib_files))
 	compile_flags	:= $(addprefix -DDEBUG , $(compile_flags))
-else
-	obj_dir			:= obj/Release/
 endif
 
-export build_type bin_dir src_dir obj_dir
+export build_type bin_dir obj_dir
 
 project				:= $(addprefix $(obj_dir),$(project))
 
@@ -85,6 +81,9 @@ install_modules:
 prepare:
 	mkdir -p $(obj_dir)
 	mkdir -p $(bin_dir)
+	if [ "$(inc_version)" != "none" ]; then \
+		rm -f $(obj_dir)/main.o; \
+	fi
 
 $(project): $(obj_files)
 	g++ -o $@ $< $(addprefix -L,$(addprefix $(obj_dir),$(modules))) $(addprefix -l,$(lib_files)) $(link_flags)

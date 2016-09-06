@@ -3,9 +3,11 @@ module				:= $(shell basename `pwd`)
 compile_flags		:= -std=c++11 -fPIC
 
 obj_dir				:= ../../$(obj_dir)$(module)/
+src_dir				:= ../
 
 ifeq ($(build_type), debug)
 	module			:= $(addsuffix _debug, $(module))
+	compile_flags	:= $(addprefix -DDEBUG , $(compile_flags))
 endif
 
 module				:= $(addsuffix .so, $(addprefix $(obj_dir)lib, $(module)))
@@ -24,10 +26,10 @@ prepare:
 $(module): $(obj_files)
 	g++ -o $@ -shared $<
 
-$(info Obj dir is $(obj_dir))
+$(info Src is $(src_dir))
 
 $(obj_dir)%.o:%.cpp
-	g++ -fPIC -c $< -o $@
+	g++ $(compile_flags) -fPIC -c $< -o $@ -I$(src_dir)
 
 install:
 	mkdir -p $(bin_dir)
