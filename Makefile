@@ -9,7 +9,7 @@ bin_dir				:= bin
 #version major.minor.build
 inc_version			:= build
 
-modules				:= class
+modules				:= #class
 
 # ===================================
 
@@ -19,31 +19,31 @@ lib_files			:= $(modules)
 
 version				:= $(shell gawk 'BEGIN{FS = ".";}\
 									{\
-										if ("$(inc_version)" == "buid") \
+										if ("'$(inc_version)'" == "build") \
 										{ \
 											major = $$1; \
 											minor = $$2; \
 											build = $$3 + 1; \
 										} \
-										else if ("$(inc_version)" == "minor") \
+										else if ("'$(inc_version)'" == "minor") \
 										{ \
 											major = $$1; \
 											minor = $$2 + 1; \
 											build = 0; \
 										} \
-										else if ("$(inc_version)" == "major") \
+										else if ("'$(inc_version)'" == "major") \
 										{ \
 											major = $$1 + 1; \
 											minor = 0; \
 											build = 0; \
 										} \
-										printf("%d %d %d", major, minor, bulid); \
+										printf("%d.%d.%d", major, minor, build); \
 									}' $(src_dir)version)
 
-compile_flags		:= -std=c++11 -DVERSION="\"$(major).$(minor).$(build)"\"
-link_flags			:= -Xlinker -rpath=$(CURDIR)/$(bin_dir)/
+$(info Ver = $(version))
 
-$(info version is $(version))
+compile_flags		:= -std=c++11 -DVERSION="\"$(version)"\"
+link_flags			:= -Xlinker -rpath=$(CURDIR)/$(bin_dir)/
 
 ifeq ($(build_type), debug)
 	project			:= $(addsuffix _debug, $(project))
