@@ -1,20 +1,27 @@
 #include <iostream>
 
-#include "server/accumserver.h"
 #include "globals.h"
+#include "server/accumserver.h"
+#include "server/accumexception.h"
 
 int main()
 {
 	std::cout << "Version: " << VERSION << std::endl;
 
 	AccumServer server;
-	server.setIpAddress("127.0.0.1");
+	server.setIpAddress("AAAAA");
 	server.setPort(1028);
 	int result;
-	result = server.openServer();
-	dprint(result);
+	try
+	{
+		result = server.openServer();
+	}
+	catch(AccumException &e)
+	{
+		std::cout << e.what() << std::endl;
+	}
 	server.closeServer();
-
+	
 	return 0;
 }
 

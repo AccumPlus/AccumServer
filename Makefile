@@ -19,27 +19,27 @@ obj_dir				:= obj/$(build_type)/
 lib_files			:= $(modules)
 
 version				:= $(shell gawk 'BEGIN{FS = ".";}\
-					                {\
+									{\
 										major = $$1; \
 										minor = $$2; \
 										build = $$3; \
-					                    if ("'$(inc_version)'" == "build") \
-					                    { \
-					                        build = $$3 + 1; \
-					                    } \
-					                    else if ("'$(inc_version)'" == "minor") \
-					                    { \
-					                        minor = $$2 + 1; \
-					                        build = 0; \
-					                    } \
-					                    else if ("'$(inc_version)'" == "major") \
-					                    { \
-					                        major = $$1 + 1; \
-					                        minor = 0; \
-					                        build = 0; \
-					                    } \
-					                    printf("%d.%d.%d", major, minor, build); \
-					                }' $(src_dir)version)
+										if ("'$(inc_version)'" == "build") \
+										{ \
+											build = $$3 + 1; \
+										} \
+										else if ("'$(inc_version)'" == "minor") \
+										{ \
+											minor = $$2 + 1; \
+											build = 0; \
+										} \
+										else if ("'$(inc_version)'" == "major") \
+										{ \
+											major = $$1 + 1; \
+											minor = 0; \
+											build = 0; \
+										} \
+										printf("%d.%d.%d", major, minor, build); \
+									}' $(src_dir)version)
 
 compile_flags		:= -std=c++11 -DVERSION="\"$(version)"\"
 link_flags			:= -Xlinker -rpath=$(CURDIR)/$(bin_dir)/

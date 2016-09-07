@@ -4,18 +4,21 @@
 #include <exception>
 #include <string>
 
+
 class AccumException: public std::exception
 {
 	public:
-		enum AccumExc:int{	SRV_CREATE_EXC		= 101,
-							SRV_BIND_EXC		= 102
+		enum AccumExc:int{	DEFAULT_EXC				= 0,
+							SRV_CREAT_SOCK_EXC		= 101,
+							SRV_BIND_PORT_EXC		= 102,
+							SRV_BIND_IP_EXC			= 103
 		};
 		AccumException(AccumExc exc);
 		virtual const char* what() const noexcept;
 		~AccumException();
 	private:
 		std::string getExcMessage(AccumExc exc) const;
-		AccumExc exc;
+		std::string error;
 };
 
 #endif

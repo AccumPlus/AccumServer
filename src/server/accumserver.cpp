@@ -1,11 +1,13 @@
 #include <iostream>
 #include <regex>
+#include <errno.h>
 
-//#include <globals.h>
+#include <globals.h>
 
 #include "accumserver.h"
 
-AccumServer::AccumServer()
+AccumServer::AccumServer():
+	maxClientsNum{0}
 {
 }
 
@@ -15,9 +17,6 @@ AccumServer::~AccumServer()
 
 void AccumServer::setIpAddress(const std::string &ipAddress)
 {
-	/*std::regex pattern("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
-	if (!std::regex_match(ipAddress, pattern))
-		return INV_IP_ERR;*/
 	this->ipAddress = ipAddress;
 }
 
@@ -50,7 +49,7 @@ int AccumServer::openServer() throw (AccumException)
 {
 	sockDescr = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockDescr < 0)
-		return -1;
+		throw AccumException(AccumException::SRV_CREAT_SOCK_EXC);
 
 	srvAddr.sin_family = AF_INET;
 	srvAddr.sin_port = htons(port);
@@ -59,10 +58,18 @@ int AccumServer::openServer() throw (AccumException)
 	if (bind(sockDescr, (struct sockaddr *)&srvAddr, sizeof(srvAddr)) < 0)
 	{
 		close (sockDescr);
-		throw AccumException(AccumException::SRV_BIND_EXC);
+		switch (errno)
+		{
+		case EADDRINUSE:
+			throw AccumException(AccumException::SRV_BIND_PORT_EXC);
+		case EADDRNOTAVAIL:
+			throw AccumException(AccumException::SRV_BIND_IP_EXC);
+		default:
+			throw AccumException(AccumException::DEFAULT_EXC);
+		}
 	}
 
-	if (listen (sockDescr, 0) < 0)
+	if (listen (sockDescr, maxClientsNum) < 0)
 	{
 		close (sockDescr);
 		return -3;
