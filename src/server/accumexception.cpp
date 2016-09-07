@@ -1,12 +1,11 @@
 #include "accumexception.h"
 
-AccumException::AccumException(AccumExc exc):
-	std::exception()
+AccumException::AccumException(AccumExc exc)
 {
 	this->exc = exc;
 }
 
-const char* AccumException::what() const throw()
+const char* AccumException::what() const noexcept
 {
 	return getExcMessage(exc).c_str();
 }
@@ -20,4 +19,8 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 	}
 
 	return "";
+}
+
+AccumException::~AccumException()
+{
 }

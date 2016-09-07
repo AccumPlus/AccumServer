@@ -86,7 +86,7 @@ prepare:
 	fi
 
 $(project): $(obj_files)
-	g++ -o $@ $< $(addprefix -L,$(addprefix $(obj_dir),$(modules))) $(addprefix -l,$(lib_files)) $(link_flags)
+	g++ -o $@ $(obj_files) $(addprefix -L,$(addprefix $(obj_dir),$(modules))) $(addprefix -l,$(lib_files)) $(link_flags)
 
 $(obj_dir)%.o:$(src_dir)%.cpp
 	g++ $(compile_flags) -o $@ -c $< -I$(src_dir) 

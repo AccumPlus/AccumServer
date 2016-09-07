@@ -7,9 +7,12 @@
 class AccumException: public std::exception
 {
 	public:
-		enum AccumExc:int{SRV_CREATE_EXC = 1};
+		enum AccumExc:int{	SRV_CREATE_EXC		= 101,
+							SRV_BIND_EXC		= 102
+		};
 		AccumException(AccumExc exc);
-		virtual const char* what() const throw();
+		virtual const char* what() const noexcept;
+		~AccumException();
 	private:
 		std::string getExcMessage(AccumExc exc) const;
 		AccumExc exc;

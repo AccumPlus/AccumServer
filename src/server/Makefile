@@ -7,7 +7,7 @@ src_dir				:= ../
 
 ifeq ($(build_type), debug)
 	module			:= $(addsuffix _debug, $(module))
-	compile_flags	:= $(addprefix -DDEBUG , $(compile_flags))
+	compile_flags	:= -DDEBUG $(compile_flags)
 endif
 
 module				:= $(addsuffix .so, $(addprefix $(obj_dir)lib, $(module)))
@@ -15,6 +15,8 @@ module				:= $(addsuffix .so, $(addprefix $(obj_dir)lib, $(module)))
 src_files			:= $(shell find . -maxdepth 1 -name '*.cpp')
 obj_files			:= $(src_files:.cpp=.o)
 obj_files			:= $(addprefix $(obj_dir), $(obj_files))
+
+$(info Obj files are $(obj_files))
 
 .PHONY: install
 
@@ -24,12 +26,10 @@ prepare:
 	mkdir -p $(obj_dir)
 
 $(module): $(obj_files)
-	g++ -o $@ -shared $<
-
-$(info Src is $(src_dir))
+	g++ -o $@ -shared $(obj_files)
 
 $(obj_dir)%.o:%.cpp
-	g++ $(compile_flags) -fPIC -c $< -o $@ -I$(src_dir)
+	g++ $(compile_flags) -c $< -o $@ -I$(src_dir)
 
 install:
 	mkdir -p $(bin_dir)

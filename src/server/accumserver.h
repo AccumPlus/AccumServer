@@ -1,20 +1,19 @@
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef ACCUMSERVER_H
+#define ACCUMSERVER_H
 
 #include <string>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
-class Server
+#include "accumexception.h"
+
+class AccumServer
 {
 	public:
-		enum Error:int {	NO_ERR					= 0,
-							SRV_CREATE_ERR			= 101,
-							SRV_BIND_ERR			= 102,
-							SRV_LISTEN_ERR			= 103,
-							INV_IP_ERR				= 201,
-							INV_NOIP_ERR			= 202
-		};
-		Server();
-		~Server();
+		AccumServer();
+		~AccumServer();
 
 		void setIpAddress(const std::string &ipAddress);
 		void setPort(const short &port);
@@ -24,8 +23,8 @@ class Server
 		short getPort();
 		int getMaxClientsNum();
 
-		int open();
-		void close();
+		int openServer() throw (AccumException);
+		void closeServer();
 
 	private:
 		std::string ipAddress;
@@ -33,6 +32,7 @@ class Server
 		int maxClientsNum;
 
 		int sockDescr;
+		sockaddr_in srvAddr;
 };
 
 #endif
