@@ -9,7 +9,7 @@ bin_dir				:= bin
 #version major.minor.build
 inc_version			:= none
 
-modules				:= server
+modules				:= server exception
 
 # ===================================
 
@@ -17,6 +17,7 @@ src_dir				:= src/
 obj_dir				:= obj/$(build_type)/
 
 lib_files			:= $(modules)
+ext_lib_files		:= -lpthread
 
 version				:= $(shell gawk 'BEGIN{FS = ".";}\
 									{\
@@ -86,7 +87,7 @@ prepare:
 	fi
 
 $(project): $(obj_files)
-	g++ -o $@ $(obj_files) $(addprefix -L,$(addprefix $(obj_dir),$(modules))) $(addprefix -l,$(lib_files)) $(link_flags)
+	g++ -o $@ $(obj_files) $(addprefix -L,$(addprefix $(obj_dir),$(modules))) $(addprefix -l,$(lib_files)) $(link_flags) $(ext_lib_files)
 
 $(obj_dir)%.o:$(src_dir)%.cpp
 	g++ $(compile_flags) -o $@ -c $< -I$(src_dir) 

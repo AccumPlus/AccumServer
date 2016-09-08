@@ -6,13 +6,15 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <map>
 
-#include "accumexception.h"
+#include <exception/accumexception.h>
 
 class AccumServer
 {
 	public:
 		AccumServer();
+		AccumServer(const std::string &ipAddress, const short &port, const int num = 0);
 		~AccumServer();
 
 		void setIpAddress(const std::string &ipAddress);
@@ -22,17 +24,27 @@ class AccumServer
 		std::string getIpAddress();
 		short getPort();
 		int getMaxClientsNum();
+		bool isOpened();
 
-		int openServer() throw (AccumException);
+		void openServer() throw (AccumException);
 		void closeServer();
 
-	private:
-		std::string ipAddress;
-		short port;
-		int maxClientsNum;
+		std::string getRequest();
 
-		int sockDescr;
-		sockaddr_in srvAddr;
+	private:
+		//void readData(int clientSocket);
+		void readData();
+
+		std::string ipAddress;				// IP адрес сервера
+		short port;							// Порт сервера
+		int maxClientsNum;					// Максимальное число поделючений
+
+		int sockDescr;						// Дескриптор сервер-сокета
+		sockaddr_in srvAddr;				// Структура для хранения адреса сервера
+		bool opened;						// Флаг открыт ли сервер
+		int	curClientsNum;					// Текущее число подключений
+		std::map<int, std::string> clients;	// Дескрипторы сокетов клиентов
+		
 };
 
 #endif
