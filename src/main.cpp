@@ -11,6 +11,7 @@ int main()
 	AccumServer server;
 	server.setIpAddress("192.168.0.221");
 	server.setPort(1028);
+	server.setMaxClientsNum(1);
 
 	try
 	{

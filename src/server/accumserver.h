@@ -6,7 +6,8 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <map>
+#include <vector>
+#include <thread>
 
 #include <exception/accumexception.h>
 
@@ -32,8 +33,9 @@ class AccumServer
 		std::string getRequest();
 
 	private:
-		//void readData(int clientSocket);
-		void readData();
+		void readData(int clientSocket);
+		int findClient(int clientSocket);
+		void removeClient(int clientSocket);
 
 		std::string ipAddress;				// IP адрес сервера
 		short port;							// Порт сервера
@@ -43,7 +45,18 @@ class AccumServer
 		sockaddr_in srvAddr;				// Структура для хранения адреса сервера
 		bool opened;						// Флаг открыт ли сервер
 		int	curClientsNum;					// Текущее число подключений
-		std::map<int, std::string> clients;	// Дескрипторы сокетов клиентов
+
+		struct Client
+		{
+			Client():
+				clientSocket(0)
+			{}
+			int clientSocket;
+			std::string address;
+			std::thread th;
+		};
+		std::vector<Client> clients;
+
 		
 };
 

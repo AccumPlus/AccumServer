@@ -1,14 +1,13 @@
 #include <iostream>
 #include <regex>
 #include <errno.h>
-#include <thread>
 
 #include <globals.h>
 
 #include "accumserver.h"
 
 AccumServer::AccumServer():
-	maxClientsNum{0}, curClientsNum{0}
+	maxClientsNum{1}, curClientsNum{0}
 {
 }
 
@@ -106,13 +105,17 @@ void AccumServer::openServer() throw (AccumException)
 			std::cout << "New connection:" << std::endl;
 			std::cout << "IP: " << inet_ntoa(clientAddr.sin_addr) << std::endl;
 
-			clients[clientSocket] = inet_ntoa(clientAddr.sin_addr);
-			
-			// Здесь фильтруем подключение
+			// Ждём, если все заняты
+			while (curClientsNum >= maxClientsNum);
 
-			// в отдельном потоке запускаем функцию readData
-			std::thread t1(&AccumServer::readData, this);
-			t1.join();
+			++curClientsNum;
+
+			Client client;
+			client.clientSocket = clientSocket;
+			client.address = inet_ntoa(clientAddr.sin_addr);
+			client.th = std::thread(&AccumServer::readData, this, clientSocket);
+
+			clients.push_back(std::move(client));
 		}
 	}
 }
@@ -131,15 +134,8 @@ bool AccumServer::isOpened()
 	return opened;
 }
 
-void AccumServer::readData()
+void AccumServer::readData(int clientSocket)
 {
-	std::cout << "ASDASD" << std::endl;
-}
-
-/*void AccumServer::readData(int clientSocket)
-{
-	std::cout << "Connection" << std::endl;
-
 	char message[BUFSIZ];
 	int bytesNumber;
 
@@ -148,6 +144,31 @@ void AccumServer::readData()
 		bytesNumber = recv(clientSocket, message, BUFSIZ, 0);
 		if (bytesNumber <= 0) break;
 
-		std::cout << clients[clientSocket] << std::endl << message << std::endl << std::endl;
+		std::cout << clients[findClient(clientSocket)].address << std::endl << message << std::endl << std::endl;
+		break;
 	}
-}*/
+
+	removeClient(clientSocket);
+}
+
+int AccumServer::findClient(int clientSocket)
+{
+	int n = 0;
+	for (auto it = clients.begin(); it != clients.end(); ++it, ++n)
+		if (it->clientSocket == clientSocket)
+			return n;
+	return -1;
+}
+
+void AccumServer::removeClient(int clientSocket)
+{
+	int n = findClient(clientSocket);
+	if (n == -1)
+		return;
+
+	close(clientSocket);
+	clients[n].th.detach();
+	clients.erase(clients.begin() + n);
+
+	--curClientsNum;
+}
