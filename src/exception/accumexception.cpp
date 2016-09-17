@@ -42,6 +42,13 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 		case SRV_ACCEPT_EXC:
 			message += "Exception at acception client's connection.";
 			break;
+		case INV_JSON_EXC:
+			message += "Bad json file.";
+			break;
+		case FILE_NEXS_EXC:
+			message += "File not exists.";
+			break;
+			
 	}
 
 	if (exc == DEFAULT_EXC)
