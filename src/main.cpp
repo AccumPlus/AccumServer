@@ -1,4 +1,5 @@
 #include <iostream>
+#include <json.hpp>
 
 #include "globals.h"
 #include "server/accumserver.h"
@@ -6,15 +7,13 @@
 
 int main()
 {
-	std::cout << "Version: " << VERSION << std::endl;
+	std::cout << "=== AccumServer ===" << std::endl << "Version: " << VERSION << std::endl;
 
 	AccumServer server;
-	server.setIpAddress("192.168.0.221");
-	server.setPort(1028);
-	server.setMaxClientsNum(1);
 
 	try
 	{
+		server.init("accumserver.json");
 		server.openServer();
 	}
 	catch(AccumException &e)

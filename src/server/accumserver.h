@@ -8,19 +8,19 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <thread>
+#include <iostream>
+#include <sys/types.h>
 
 #include <exception/accumexception.h>
+#include <json.hpp>
 
 class AccumServer
 {
 	public:
 		AccumServer();
-		AccumServer(const std::string &ipAddress, const short &port, const int num = 0);
 		~AccumServer();
 
-		void setIpAddress(const std::string &ipAddress);
-		void setPort(const short &port);
-		void setMaxClientsNum(const int &num);
+		void init(const std::string &settingsFile) throw (AccumException);
 
 		std::string getIpAddress();
 		short getPort();
@@ -36,10 +36,17 @@ class AccumServer
 		void readData(int clientSocket);
 		int findClient(int clientSocket);
 		void removeClient(int clientSocket);
+		void watchDog(int clientSocket, pid_t pid, bool &stopWatchDog);
+
 
 		std::string ipAddress;				// IP адрес сервера
 		short port;							// Порт сервера
 		int maxClientsNum;					// Максимальное число поделючений
+		std::vector<std::string> whitelist;	// "Белый" список IP адресов (подключаться можно только им)
+		std::vector<std::string> blacklist;	// "Чёрный" список IP адресов (им подключаться нельзя)
+		char *program;						// Программа-обработчик запросов
+		char **args;						// Аргументы для программы-обработчика
+		std::string pipePath;				// Путь к каталогу с трубами
 
 		int sockDescr;						// Дескриптор сервер-сокета
 		sockaddr_in srvAddr;				// Структура для хранения адреса сервера
@@ -56,7 +63,7 @@ class AccumServer
 			std::thread th;
 		};
 		std::vector<Client> clients;
-
+		//std::thread *threads;
 		
 };
 
