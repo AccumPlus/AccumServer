@@ -63,8 +63,6 @@ class AccumServer
 			std::thread th;
 		};
 		std::vector<Client> clients;
-		//std::thread *threads;
-		
 };
 
 #endif

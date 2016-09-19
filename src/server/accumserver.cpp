@@ -276,8 +276,6 @@ void AccumServer::readData(int clientSocket)
 					break;
 				}
 
-				sleep(10);
-
 				std::cout << clients[findClient(clientSocket)].address << std::endl << message << std::endl << std::endl;
 
 				if ((pipeDescr = open(outputPipeName.c_str(), O_WRONLY)) <= 0)
@@ -310,9 +308,11 @@ void AccumServer::readData(int clientSocket)
 
 				dprint("Message from pipe:");
 				dprint(message);
+				message[strlen(message)] = '\n';
+				message[strlen(message) + 1] = '\n';
 
 				// Отправляем клиенту
-				bytesNumber = send(clientSocket, message, strlen(message), 0);
+				bytesNumber = send(clientSocket, message, strlen(message) + 3, 0);
 				if (bytesNumber < 0)
 				{
 					error = 9;
@@ -385,8 +385,6 @@ void AccumServer::readData(int clientSocket)
 	}
 
 	std::cout << std::endl;
-
-	dprint("\n\n");
 
 	dprint("Leaving thread...");
 
