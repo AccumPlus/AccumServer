@@ -8,6 +8,7 @@
 #include <arpa/inet.h>
 #include <vector>
 #include <thread>
+#include <mutex>
 #include <iostream>
 #include <sys/types.h>
 
@@ -21,6 +22,7 @@ class AccumServer
 		~AccumServer();
 
 		void init(const std::string &settingsFile) throw (AccumException);
+		void catchCtrlC();
 
 		std::string getIpAddress();
 		short getPort();
@@ -38,7 +40,6 @@ class AccumServer
 		void removeClient(int clientSocket);
 		void watchDog(int clientSocket, pid_t pid, bool &stopWatchDog);
 
-
 		std::string ipAddress;				// IP адрес сервера
 		short port;							// Порт сервера
 		int maxClientsNum;					// Максимальное число поделючений
@@ -52,6 +53,7 @@ class AccumServer
 		sockaddr_in srvAddr;				// Структура для хранения адреса сервера
 		bool opened;						// Флаг открыт ли сервер
 		int	curClientsNum;					// Текущее число подключений
+		bool closing;
 
 		struct Client
 		{
@@ -62,6 +64,9 @@ class AccumServer
 			std::string address;
 			std::thread th;
 		};
+		std::mutex mutexClients;
+		std::mutex mutexWatchDog;
+		std::mutex mutexClosing;
 		std::vector<Client> clients;
 };
 

@@ -8,13 +8,14 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <dirent.h>
 
 #include <globals.h>
 
 #include "accumserver.h"
 
 AccumServer::AccumServer():
-	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}
+	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}
 {
 }
 
@@ -145,17 +146,26 @@ void AccumServer::openServer() throw (AccumException)
 
 	std::cout << "Started at " << ipAddress << ':' << port << std::endl << std::endl;
 
-	while (opened)
+	while (opened && !closing)
 	{
 		struct sockaddr_in clientAddr;
 		int addrLen = sizeof(clientAddr);
 		dprint("Waiting for connection");
+
 		int clientSocket = accept(sockDescr, (struct sockaddr*)&clientAddr, (socklen_t*)&addrLen);
 		if (clientSocket < 0)
 		{
-			close(clientSocket);
-			if (opened)
-				throw AccumException(AccumException::SRV_ACCEPT_EXC);
+			mutexClosing.lock();
+			if (!closing)
+			{
+				mutexClosing.unlock();
+				closeServer();
+			}
+			else
+			{
+				mutexClosing.unlock();
+			//	throw AccumException(AccumException::SRV_ACCEPT_EXC);
+			}
 		}
 		else
 		{
@@ -187,6 +197,8 @@ void AccumServer::openServer() throw (AccumException)
 			// Ждём, если все заняты
 			while (curClientsNum >= maxClientsNum);
 
+
+			mutexClients.lock();
 			++curClientsNum;
 
 			Client client;
@@ -196,6 +208,7 @@ void AccumServer::openServer() throw (AccumException)
 			client.th.detach();
 
 			clients.push_back(std::move(client));
+			mutexClients.unlock();
 		}
 	}
 }
@@ -204,8 +217,28 @@ void AccumServer::closeServer()
 {
 	if (opened)
 	{
+		std::cout << "Closing server... " << std::endl;
+		// Даём watchDog-ам команду вырубить все процессы
+		mutexClosing.lock();
+		closing = true;
+		mutexClosing.unlock();
+		// Отключаем все соединения
 		close(sockDescr);
+		// Чистим каталог с трубами
+		DIR *pipeFolder = opendir(pipePath.c_str());
+		dirent *file;
+		while ((file = readdir(pipeFolder)) != NULL)
+		{
+			std::string filepath{pipePath + '/' + file->d_name};
+			remove(filepath.c_str());
+		}
+		closedir(pipeFolder);
+		// Даём watchDog-ам пару секунд, чтоб всё вырубили
+		sleep(2);
+
 		opened = false;
+
+		std::cout << "Done." << std::endl;
 	}
 }
 
@@ -276,7 +309,12 @@ void AccumServer::readData(int clientSocket)
 					break;
 				}
 
-				std::cout << clients[findClient(clientSocket)].address << std::endl << message << std::endl << std::endl;
+				{
+					int num = findClient(clientSocket);
+					mutexClients.lock();
+					std::cout << clients[num].address << std::endl << message << std::endl << std::endl;
+					mutexClients.unlock();
+				}
 
 				if ((pipeDescr = open(outputPipeName.c_str(), O_WRONLY)) <= 0)
 				{
@@ -318,23 +356,23 @@ void AccumServer::readData(int clientSocket)
 					error = 9;
 					break;
 				}
-				dprint("sent!!!");
 			}
-
-			std::cout << "Out of loop" << std::endl;
 
 			// Убиваем следящий поток
 			stopWatchDog = true;
-
 			wthr.join();
-			kill(pid, SIGKILL);
 		}
 		remove(inputPipeName.c_str());
 		remove(outputPipeName.c_str());
 		dprint("pipes were removed");
 	}
 
-	std::cout << clients[findClient(clientSocket)].address << ": ";
+	{
+		int num = findClient(clientSocket);
+		mutexClients.lock();
+		std::cout << clients[num].address << ": ";
+		mutexClients.unlock();
+	}
 
 	switch(error)
 	{
@@ -394,10 +432,20 @@ void AccumServer::readData(int clientSocket)
 int AccumServer::findClient(int clientSocket)
 {
 	int n = 0;
+	mutexClients.lock();
 	for (auto it = clients.begin(); it != clients.end(); ++it, ++n)
 		if (it->clientSocket == clientSocket)
-			return n;
-	return -1;
+			break;
+	if (n == clients.size())
+	{
+		mutexClients.unlock();
+		return -1;
+	}
+	else
+	{
+		mutexClients.unlock();
+		return n;
+	}
 }
 
 void AccumServer::removeClient(int clientSocket)
@@ -406,19 +454,50 @@ void AccumServer::removeClient(int clientSocket)
 	if (n == -1)
 		return;
 	close(clientSocket);
-	//clients[n].th.detach();
+
+	mutexClients.lock();
 	clients.erase(clients.begin() + n);
 	--curClientsNum;
+	mutexClients.unlock();
 }
 
 void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 {
-	while (waitpid(pid, NULL, WNOHANG) == 0 && stopWatchDog == false);
-
-	if (!stopWatchDog)
+	while (true)
 	{
-		std::cout << "Fatal! Working program crashed!" << std::endl;
-		exit(1);
+		if (waitpid(pid, NULL, WNOHANG) != 0)
+		{
+			int num = findClient(clientSocket);
+			mutexClients.lock();
+			std::cout << "Fatal! Working program crashed! (" << clients[num].address << ")" << std::endl;
+			mutexClients.unlock();
+			this->closeServer();
+		}
+
+		mutexClosing.lock();
+		if (closing)
+			if (waitpid(pid, NULL, WNOHANG) == 0)
+			{
+				kill(pid, SIGKILL);
+				break;
+			}
+		mutexClosing.unlock();
+
+		mutexWatchDog.lock();
+		if (stopWatchDog)
+		{
+			dprint("WatchDog was stopped");
+			if (waitpid(pid, NULL, WNOHANG) == 0)
+				kill(pid, SIGKILL);
+			mutexWatchDog.unlock();
+			break;
+		}
+		mutexWatchDog.unlock();
 	}
-	std::cout << "Watch: " << clients[findClient(clientSocket)].address << ": Error at working program." << std::endl;
+}
+
+void AccumServer::catchCtrlC()
+{
+	std::cout << "I got Ctrl+C!!!" << std::endl;
+	exit(1);
 }
