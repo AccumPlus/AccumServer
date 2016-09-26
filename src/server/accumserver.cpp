@@ -140,12 +140,34 @@ void AccumServer::openServer() throw (AccumException)
 		throw AccumException(AccumException::SRV_LIST_EXC);
 	}
 
-	//threads = new std::thread[maxClientsNum];
-
 	opened = true;
 
 	std::cout << "Started at " << ipAddress << ':' << port << std::endl << std::endl;
 
+	// Рабочий поток
+	std::thread workingThread = std::thread(&AccumServer::work, this);
+
+	// Ждём, пока кто-либо не поставит closing в true
+	while (true)
+	{
+		mutexClosing.lock();
+		if (closing)
+		{
+			dprint("Im going to close serv");
+			mutexClosing.unlock();
+			closingServer();
+			break;
+		}
+		mutexClosing.unlock();
+	}
+
+	dprint("Im waiting for workingthread");
+	workingThread.join();
+}
+
+
+void AccumServer::work()
+{
 	while (opened && !closing)
 	{
 		struct sockaddr_in clientAddr;
@@ -153,19 +175,19 @@ void AccumServer::openServer() throw (AccumException)
 		dprint("Waiting for connection");
 
 		int clientSocket = accept(sockDescr, (struct sockaddr*)&clientAddr, (socklen_t*)&addrLen);
+
 		if (clientSocket < 0)
 		{
+			dprint("Accept error");
 			mutexClosing.lock();
-			if (!closing)
-			{
-				mutexClosing.unlock();
-				closeServer();
-			}
-			else
-			{
-				mutexClosing.unlock();
-			//	throw AccumException(AccumException::SRV_ACCEPT_EXC);
-			}
+			closing = true;
+			mutexClosing.unlock();
+			break;
+		}
+		else if(closing || !opened)
+		{
+			dprint("Accept - closing server");
+			break;
 		}
 		else
 		{
@@ -211,19 +233,28 @@ void AccumServer::openServer() throw (AccumException)
 			mutexClients.unlock();
 		}
 	}
+	dprint("WorkingThread leaving");
 }
 
-void AccumServer::closeServer()
+void AccumServer::closingServer()
 {
 	if (opened)
 	{
+		opened = false;
+
 		std::cout << "Closing server... " << std::endl;
-		// Даём watchDog-ам команду вырубить все процессы
-		mutexClosing.lock();
-		closing = true;
-		mutexClosing.unlock();
 		// Отключаем все соединения
 		close(sockDescr);
+		// Шлём контрольный запрос для выхода из accept
+		int tempSocket;
+		struct sockaddr_in serverAddr;
+		tempSocket = socket(AF_INET, SOCK_STREAM, 0);
+		serverAddr.sin_family = AF_INET;
+		serverAddr.sin_port = htons(port);
+		inet_aton (ipAddress.c_str(), &serverAddr.sin_addr);
+		connect(tempSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+		close(tempSocket);
+		dprint("Closed tempSocket");
 		// Чистим каталог с трубами
 		DIR *pipeFolder = opendir(pipePath.c_str());
 		dirent *file;
@@ -233,10 +264,11 @@ void AccumServer::closeServer()
 			remove(filepath.c_str());
 		}
 		closedir(pipeFolder);
+		dprint("pipes removed");
 		// Даём watchDog-ам пару секунд, чтоб всё вырубили
 		sleep(2);
 
-		opened = false;
+		closing = false;
 
 		std::cout << "Done." << std::endl;
 	}
@@ -422,7 +454,7 @@ void AccumServer::readData(int clientSocket)
 		}
 	}
 
-	std::cout << std::endl;
+	std::cout << std::endl << std::endl;
 
 	dprint("Leaving thread...");
 
@@ -463,6 +495,7 @@ void AccumServer::removeClient(int clientSocket)
 
 void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 {
+	dprint("Watch dog started");
 	while (true)
 	{
 		if (waitpid(pid, NULL, WNOHANG) != 0)
@@ -471,16 +504,21 @@ void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 			mutexClients.lock();
 			std::cout << "Fatal! Working program crashed! (" << clients[num].address << ")" << std::endl;
 			mutexClients.unlock();
-			this->closeServer();
+			mutexClosing.lock();
+			closing = true;
+			mutexClosing.unlock();
+			dprint("Breakaus!");
+			break;
 		}
 
 		mutexClosing.lock();
 		if (closing)
+		{
+			mutexClosing.unlock();
 			if (waitpid(pid, NULL, WNOHANG) == 0)
-			{
 				kill(pid, SIGKILL);
-				break;
-			}
+			break;
+		}
 		mutexClosing.unlock();
 
 		mutexWatchDog.lock();
@@ -494,10 +532,17 @@ void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 		}
 		mutexWatchDog.unlock();
 	}
+	dprint("Watch dog out!");
 }
 
 void AccumServer::catchCtrlC()
 {
 	std::cout << "I got Ctrl+C!!!" << std::endl;
-	exit(1);
+	closeServer();
+}
+
+void AccumServer::closeServer()
+{
+	dprint("Call closeServer");
+	closing = true;
 }

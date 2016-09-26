@@ -39,6 +39,8 @@ class AccumServer
 		int findClient(int clientSocket);
 		void removeClient(int clientSocket);
 		void watchDog(int clientSocket, pid_t pid, bool &stopWatchDog);
+		void work();
+		void closingServer();
 
 		std::string ipAddress;				// IP адрес сервера
 		short port;							// Порт сервера

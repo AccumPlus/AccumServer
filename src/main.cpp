@@ -40,5 +40,5 @@ int main()
 
 void catchCtrlC(int s)
 {
-	server.closeServer();
+	server.catchCtrlC();
 }
