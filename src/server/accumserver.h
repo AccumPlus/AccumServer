@@ -42,6 +42,8 @@ class AccumServer
 		void work();
 		void closingServer();
 
+		unsigned short BUFSIZE;
+
 		std::string ipAddress;				// IP адрес сервера
 		short port;							// Порт сервера
 		int maxClientsNum;					// Максимальное число поделючений

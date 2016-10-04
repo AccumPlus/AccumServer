@@ -17,6 +17,9 @@
 AccumServer::AccumServer():
 	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}
 {
+	BUFSIZE = 0;
+	BUFSIZE -= 2;
+	dprint(BUFSIZE);
 }
 
 AccumServer::~AccumServer()
@@ -324,22 +327,32 @@ void AccumServer::readData(int clientSocket)
 			bool stopWatchDog = false;
 			// Создаём поток, следящий за работой дочернего процесса
 			std::thread wthr(&AccumServer::watchDog, this, clientSocket, pid, std::ref(stopWatchDog));
+			
+			dprint("Before while");
 
+			char *message = new char[BUFSIZE];
 			// Вечный цикл обмена
 			while (true)
 			{
-				char message[BUFSIZ];
-				int bytesNumber;
+				dprint("Before making message");
+
+				int bytesNumber = 0;
 
 				dprint("reading...");
 				// Читаем клиента
-				memset(message, '\0', BUFSIZ);
-				bytesNumber = recv(clientSocket, message, BUFSIZ-1, 0);
-				if (bytesNumber <= 0)
+				//memset(message, '\0', BUFSIZE);
+				message[0] = '\0';
+				dprint("receiving...");
+				bytesNumber = recv(clientSocket, message, BUFSIZE - 1, 0);
+				message[bytesNumber] = '\0';
+				dprint(std::string("Bytes!!!!! = ") + std::to_string(bytesNumber));
+				if (bytesNumber <= 0 || bytesNumber > BUFSIZE - 1)
 				{
 					error = 6;
 					break;
 				}
+
+				dprint("Got bytes");
 
 				{
 					int num = findClient(clientSocket);
@@ -361,14 +374,17 @@ void AccumServer::readData(int clientSocket)
 				}
 				close(pipeDescr);
 
-				memset(message, '\0', BUFSIZ);
+				//memset(message, '\0', BUFSIZE);
+				message[0] = '\0';
 				if ((pipeDescr = open(inputPipeName.c_str(), O_RDONLY)) <= 0)
 				{
 					error = 10;
 					break;
 				}
 
-				bytesNumber = read(pipeDescr, message, BUFSIZ);
+				bytesNumber = read(pipeDescr, message, BUFSIZE);
+				dprint(std::string("BytesNumber = " + std::to_string(bytesNumber)));
+				message[bytesNumber] = '\0';
 				if (bytesNumber <= 0)
 				{
 					error = 8;
@@ -378,17 +394,21 @@ void AccumServer::readData(int clientSocket)
 
 				dprint("Message from pipe:");
 				dprint(message);
-				message[strlen(message)] = '\n';
-				message[strlen(message) + 1] = '\n';
+				dprint(std::string("length") + std::to_string(strlen(message)));
+//				message[bytesNumber] = '\0';
 
 				// Отправляем клиенту
-				bytesNumber = send(clientSocket, message, strlen(message) + 3, 0);
-				if (bytesNumber < 0)
+				bytesNumber = send(clientSocket, message, bytesNumber, 0);
+				dprint(std::string("sent = ") + std::to_string(bytesNumber));
+				if (bytesNumber <= 0)
 				{
 					error = 9;
 					break;
 				}
 			}
+
+			delete[] message;
+			message = 0;
 
 			// Убиваем следящий поток
 			stopWatchDog = true;
@@ -498,6 +518,7 @@ void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 	dprint("Watch dog started");
 	while (true)
 	{
+		// Рабочая программа завершилась с ошибкой
 		if (waitpid(pid, NULL, WNOHANG) != 0)
 		{
 			int num = findClient(clientSocket);
@@ -511,22 +532,32 @@ void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 			break;
 		}
 
+		// Сервер закрывается
 		mutexClosing.lock();
 		if (closing)
 		{
 			mutexClosing.unlock();
 			if (waitpid(pid, NULL, WNOHANG) == 0)
-				kill(pid, SIGKILL);
+			{
+				dprint("Sending SIGTERM to python");
+				kill(pid, SIGTERM);
+				waitpid(pid, NULL, 0);
+			}	
 			break;
 		}
 		mutexClosing.unlock();
 
+		// Клиент отключился
 		mutexWatchDog.lock();
 		if (stopWatchDog)
 		{
 			dprint("WatchDog was stopped");
 			if (waitpid(pid, NULL, WNOHANG) == 0)
-				kill(pid, SIGKILL);
+			{
+				dprint("Sending SIGTERM to python");
+				kill(pid, SIGTERM);
+				waitpid(pid, NULL, 0);
+			}
 			mutexWatchDog.unlock();
 			break;
 		}
@@ -537,7 +568,7 @@ void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 
 void AccumServer::catchCtrlC()
 {
-	std::cout << "I got Ctrl+C!!!" << std::endl;
+	dprint("I got Ctrl+C!!!");
 	closeServer();
 }
 
