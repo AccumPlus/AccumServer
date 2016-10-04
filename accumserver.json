@@ -13,5 +13,6 @@
 		"program":"main.py",
 		"args":[
 		]
-	}
+	},
+	"reuseAddr":1
 }

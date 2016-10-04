@@ -52,6 +52,7 @@ class AccumServer
 		char *program;						// Программа-обработчик запросов
 		char **args;						// Аргументы для программы-обработчика
 		std::string pipePath;				// Путь к каталогу с трубами
+		int reuseAddr;
 
 		int sockDescr;						// Дескриптор сервер-сокета
 		sockaddr_in srvAddr;				// Структура для хранения адреса сервера

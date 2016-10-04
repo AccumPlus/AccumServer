@@ -15,7 +15,7 @@
 #include "accumserver.h"
 
 AccumServer::AccumServer():
-	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}
+	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}, reuseAddr{0}
 {
 	BUFSIZE = 0;
 	BUFSIZE -= 2;
@@ -84,7 +84,8 @@ void AccumServer::init(const std::string &settingsFile) throw (AccumException)
 		}
 		if (!settings["pipePath"].is_null())
 			pipePath = settings["pipePath"];
-
+		if (!settings["pipePath"].is_null())
+			reuseAddr = settings["reuseAddr"];
 	}
 	catch (...)
 	{
@@ -116,6 +117,8 @@ void AccumServer::openServer() throw (AccumException)
 		throw AccumException(AccumException::INV_CL_NUM_EXC);
 
 	sockDescr = socket(AF_INET, SOCK_STREAM, 0);
+	setsockopt(sockDescr, SOL_SOCKET, SO_REUSEADDR, (char*)&reuseAddr, sizeof(reuseAddr));
+
 	if (sockDescr < 0)
 		throw AccumException(AccumException::SRV_CREAT_SOCK_EXC);
 
