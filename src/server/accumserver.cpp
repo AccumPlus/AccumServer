@@ -71,20 +71,24 @@ void AccumServer::init(const std::string &settingsFile) throw (AccumException)
 		{
 			if (!settings["workProgram"]["args"].empty())
 			{
-				args = new char*[settings["workProgram"]["args"].size()];
-				int i = 0;
+				args = new char*[settings["workProgram"]["args"].size() + 2];
+				int i = 1;
 				for (auto el: settings["workProgram"]["args"])
 				{
 					std::string name = el;
 					args[i] = new char[name.size() + 1];
 					strcpy(args[i], name.c_str());
+					dprint(args[i]);
 					++i;
 				}
+				dprint(std::string("i = ") + std::to_string(i));
+				args[i] = NULL;
+				args[0] = program;
 			}
 		}
 		if (!settings["pipePath"].is_null())
 			pipePath = settings["pipePath"];
-		if (!settings["pipePath"].is_null())
+		if (!settings["reuseAddr"].is_null())
 			reuseAddr = settings["reuseAddr"];
 	}
 	catch (...)
@@ -306,7 +310,10 @@ void AccumServer::readData(int clientSocket)
 		else
 		{
 			if (execv(program, args) == -1)
+			{
+				perror("execv");
 				error = 3;
+			}
 		}
 		dprint("Child OUT!!!");
 	}
