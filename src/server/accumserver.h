@@ -13,6 +13,7 @@
 #include <sys/types.h>
 
 #include <exception/accumexception.h>
+#include <log/accumlog.h>
 #include <json.hpp>
 
 class AccumServer
@@ -53,6 +54,7 @@ class AccumServer
 		char **args;						// Аргументы для программы-обработчика
 		std::string pipePath;				// Путь к каталогу с трубами
 		int reuseAddr;
+		std::string logfile;
 
 		int sockDescr;						// Дескриптор сервер-сокета
 		sockaddr_in srvAddr;				// Структура для хранения адреса сервера

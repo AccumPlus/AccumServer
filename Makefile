@@ -9,7 +9,7 @@ bin_dir				:= bin
 #version major.minor.build
 inc_version			:= none
 
-modules				:= server exception
+modules				:= server exception log
 
 # ===================================
 
