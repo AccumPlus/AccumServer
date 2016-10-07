@@ -30,7 +30,7 @@ class AccumServer
 		int getMaxClientsNum();
 		bool isOpened();
 
-		void openServer() throw (AccumException);
+		int openServer() throw (AccumException);
 		void closeServer();
 
 		std::string getRequest();
@@ -61,6 +61,7 @@ class AccumServer
 		bool opened;						// Флаг открыт ли сервер
 		int	curClientsNum;					// Текущее число подключений
 		bool closing;
+		int returning;
 
 		struct Client
 		{

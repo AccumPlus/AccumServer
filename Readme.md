@@ -26,12 +26,13 @@ make install build_type=release
 
 Для изменения каталога сборки укажите переменную bin:
 ```
-make install bin=/other/directory
+make install bin_dir=/other/directory
 ```
 
 ## Использование
 
 Чтобы активировать сервер запустите файл AccumServer(_debug). При запуске приложение читает файл accumserver.json в катаоге запуска.
+Чтобы сервер работал в режиме демона, при запуске укажите флаг -d.
 
 Пример файла accumserver.json с комментариями:
 
@@ -50,7 +51,9 @@ make install bin=/other/directory
 		"program":"main.py",			- путь к программе, обрабатывающей клиентские запросы
 		"args":[						- аргументы обрабатывающей программы
 		]
-	}
+	},
+	"reuseAddr":1,						- флаг для возможности перезапуска без ожидания освобождения порта
+	"logfile":"accumserver.log"			- путь к файлу логирования
 }
 ```
 

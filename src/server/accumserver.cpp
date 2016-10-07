@@ -15,7 +15,7 @@
 #include "accumserver.h"
 
 AccumServer::AccumServer():
-	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}, reuseAddr{0}, logfile{""}
+	maxClientsNum{1}, curClientsNum{0}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}, reuseAddr{0}, logfile{""}, returning{0}
 {
 	BUFSIZE = 0;
 	BUFSIZE -= 2;
@@ -23,7 +23,7 @@ AccumServer::AccumServer():
 
 AccumServer::~AccumServer()
 {
-	closeServer();
+	//closeServer();
 }
 
 void AccumServer::init(const std::string &settingsFile) throw (AccumException)
@@ -119,7 +119,7 @@ int AccumServer::getMaxClientsNum()
 	return maxClientsNum;
 }
 
-void AccumServer::openServer() throw (AccumException)
+int AccumServer::openServer() throw (AccumException)
 {
 	dprint("Func 'openServer()' started");
 	std::regex pattern("^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$");
@@ -180,6 +180,8 @@ void AccumServer::openServer() throw (AccumException)
 
 	workingThread.join();
 	dprint("Func 'openServer()' stoped");
+
+	return returning;
 }
 
 
@@ -534,6 +536,7 @@ void AccumServer::watchDog(int clientSocket, pid_t pid, bool &stopWatchDog)
 			std::cout << "Fatal! Working program crashed! (" << clients[num].address << ")" << std::endl;
 			AccumLog::writeLog(AccumLog::ERR, std::string("Fatal! Working program crashed! (") + clients[num].address + ")");
 			mutexClients.unlock();
+			returning = 2;
 			mutexClosing.lock();
 			closing = true;
 			mutexClosing.unlock();
