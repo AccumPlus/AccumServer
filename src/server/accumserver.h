@@ -11,6 +11,7 @@
 #include <mutex>
 #include <iostream>
 #include <sys/types.h>
+#include <queue>
 
 #include <exception/accumexception.h>
 #include <log/accumlog.h>
@@ -22,48 +23,57 @@ class AccumServer
 		AccumServer();
 		~AccumServer();
 
+		// Функция инициализации сервера (загрузка конфига и т.д.)
 		void init(const std::string &settingsFile) throw (AccumException);
+		// Функция обработки SIGINT сигнала
 		void catchCtrlC();
 
-		std::string getIpAddress();
-		short getPort();
-		int getMaxClientsNum();
-		bool isOpened();
-
+		// Функция открытия сервера
 		int openServer() throw (AccumException);
+		// Функция закрытия сервера (установка флага)
 		void closeServer();
-
-		std::string getRequest();
-
 	private:
-		void readData(int clientSocket);
-		int findClient(int clientSocket);
-		void removeClient(int clientSocket);
-		void watchDog(int clientSocket, pid_t pid, bool &stopWatchDog);
+		// Основная функция ловли клиентов
 		void work();
+		// Функция обработки клиентских запросов
+		void readData(int number);
+		// Функция слежки за рабочим приложением
+		void watchDog(int number, bool &stopWatchDog, int &error);	
+		// Функция закрытия сервера
 		void closingServer();
 
+		// Перменная, хранящая размер буфера для сообщений
 		unsigned short BUFSIZE;
 
-		std::string ipAddress;				// IP адрес сервера
-		short port;							// Порт сервера
-		int maxClientsNum;					// Максимальное число поделючений
+		// === ХАРАКТЕРИСТИКИ СЕРВЕРА ===
+		int sockDescr;						// Дескриптор сервер-сокета
+		sockaddr_in srvAddr;				// Структура для хранения адреса сервера
+		std::string ipAddress;				// IP адрес
+		short port;							// Порт
+		int maxClientsNum;					// Максимальное число подключений
 		std::vector<std::string> whitelist;	// "Белый" список IP адресов (подключаться можно только им)
 		std::vector<std::string> blacklist;	// "Чёрный" список IP адресов (им подключаться нельзя)
 		char *program;						// Программа-обработчик запросов
 		char **args;						// Аргументы для программы-обработчика
 		std::string pipePath;				// Путь к каталогу с трубами
-		int reuseAddr;
-		std::string logfile;
+		int reuseAddr;						// Разрешение на мгновенное повторное использование адреса после освобождения
+		std::string logfile;				// Пусть к log-файлу
+		// ==============================
 
-		int sockDescr;						// Дескриптор сервер-сокета
-		sockaddr_in srvAddr;				// Структура для хранения адреса сервера
 		bool opened;						// Флаг открыт ли сервер
-		int	curClientsNum;					// Текущее число подключений
-		bool closing;
-		int returning;
+		std::mutex mutexOpened;				// Мьютекс на изменение флага открытия
+		bool closing;						// Флаг закрывается ли сервер
+		std::mutex mutexClosing;			// Мьютекс на изменене флага закрытия
+		unsigned int curClientsNum;			// Текущее количество клиентов
+		std::mutex mutexClients;			// Мьютекс на изменение текущего количества
 
-		struct Client
+		std::queue<int> clientsQueue;		// Очередь сокетов клиентов, готовых к обработке
+		std::mutex mutexQueue;				// Мьютекс на изменение очереди клиентов
+
+		std::vector<pid_t> processes;		// Вектор идентификаторов процессов
+		std::mutex mutexProcesses;			// Мьютекс на изменение вектора идетификаторов процессов
+
+		/*struct Client
 		{
 			Client():
 				clientSocket(0)
@@ -71,11 +81,9 @@ class AccumServer
 			int clientSocket;
 			std::string address;
 			std::thread th;
-		};
-		std::mutex mutexClients;
-		std::mutex mutexWatchDog;
-		std::mutex mutexClosing;
-		std::vector<Client> clients;
+		};*/
+		//std::mutex mutexWatchDog;
+		//std::vector<Client> clients;
 };
 
 #endif

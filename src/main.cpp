@@ -3,8 +3,6 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-//#include <sys/types.h>
-//#include <sys/stat.h>
 #include <fcntl.h>
 
 #include "globals.h"
@@ -30,7 +28,6 @@ int main(int argc, char**argv)
 
 	if (argc > 1)
 	{
-		dprint("haha");
 		if (strcmp(argv[1], "-d") == 0)
 		{
 			dprint("daemon activated!");
@@ -98,11 +95,11 @@ int main(int argc, char**argv)
 								stop = true;
 								break;
 							}
-							case 2: // Ошибка в рабочей программе. Считаем, что перезапуск может помочь.
+/*							case 2: // Ошибка в рабочей программе. Считаем, что перезапуск может помочь.
 							{
 								stop = false;
 								break;
-							}
+							}*/
 							case 0: // Нормальное завершение (посыл SIGINT/SIGTERM). Перезапускать не нужно.
 							{
 								stop = true;
@@ -152,12 +149,12 @@ int run()
 	sigaction(SIGINT, &signalHandler, NULL);
 	sigaction(SIGTERM, &signalHandler, NULL);
 
-	int ret;
+	int ret = 0;
 
 	try
 	{
 		server.init("../etc/accumserver.json");
-		ret = server.openServer();
+		server.openServer();
 	}
 	catch(AccumException &e)
 	{

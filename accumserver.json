@@ -1,7 +1,7 @@
 {
 	"ipAddress":"192.168.0.221",
 	"port":1028,
-	"maxClientsNum":5,
+	"maxClientsNum":1,
 	"pipePath":"pipes",
 	"blacklist":[
 	],
