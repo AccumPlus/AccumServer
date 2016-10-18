@@ -30,7 +30,8 @@ class AccumException: public std::exception
 							WRITE_PIPE_ERR			= 407,
 							READ_PIPE_ERR			= 408,
 							SEND_SOCK_ERR			= 409,
-							OPEN_OPIPE_ERR			= 410
+							OPEN_OPIPE_ERR			= 410,
+							SELECT_ERR				= 411
 		};
 		AccumException(AccumExc exc);
 		virtual const char* what() const noexcept;

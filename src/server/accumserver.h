@@ -12,6 +12,7 @@
 #include <iostream>
 #include <sys/types.h>
 #include <queue>
+#include <map>
 
 #include <exception/accumexception.h>
 #include <log/accumlog.h>
@@ -38,7 +39,7 @@ class AccumServer
 		// Функция обработки клиентских запросов
 		void readData(int number);
 		// Функция слежки за рабочим приложением
-		void watchDog(int number, bool &stopWatchDog, AccumException::AccumExc &error);
+		void watchDog(int number, bool &restart, AccumException::AccumExc &error);
 		// Функция закрытия сервера
 		void closingServer();
 
@@ -58,6 +59,8 @@ class AccumServer
 		std::string pipePath;				// Путь к каталогу с трубами
 		int reuseAddr;						// Разрешение на мгновенное повторное использование адреса после освобождения
 		std::string logfile;				// Пусть к log-файлу
+		std::map<std::string, 
+			std::string> defaultReplyes;	// Стандартные ответы клиенту
 		// ==============================
 
 		bool opened;						// Флаг открыт ли сервер
@@ -72,18 +75,6 @@ class AccumServer
 
 		std::vector<pid_t> processes;		// Вектор идентификаторов процессов
 		std::mutex mutexProcesses;			// Мьютекс на изменение вектора идетификаторов процессов
-
-		/*struct Client
-		{
-			Client():
-				clientSocket(0)
-			{}
-			int clientSocket;
-			std::string address;
-			std::thread th;
-		};*/
-		//std::mutex mutexWatchDog;
-		//std::vector<Client> clients;
 };
 
 #endif

@@ -90,6 +90,10 @@ void AccumServer::init(const std::string &settingsFile) throw (AccumException)
 			reuseAddr = settings["reuseAddr"];
 		if (!settings["logfile"].is_null())
 			logfile = settings["logfile"];
+		if (!settings["defaultReplyes"].is_null())
+			if (!settings["defaultReplyes"]["timeout"].is_null())
+				defaultReplyes["timeout"] = settings["defaultReplyes"]["timeout"];
+
 	}
 	catch (...)
 	{
@@ -260,9 +264,9 @@ void AccumServer::readData(int number)
 {
 	dprint("Func 'readData()' started");
 	// Запускаем watchDog-а
-	bool stopWatchDog = false;
+	bool restart = false;
 	AccumException::AccumExc watchDogError = AccumException::UNDEFINED;
-	std::thread watchDoggy = std::thread(&AccumServer::watchDog, this, number, std::ref(stopWatchDog), std::ref(watchDogError));
+	std::thread watchDoggy = std::thread(&AccumServer::watchDog, this, number, std::ref(restart), std::ref(watchDogError));
 
 	bool leaveLoop = false;
 
@@ -350,36 +354,39 @@ void AccumServer::readData(int number)
 				// Читаем трубу
 				dprint("getting mes from pipe...");
 				message[0] = '\0';
-				if ((pipeDescr = open(inputPipeName.c_str(), O_RDONLY/* | O_NONBLOCK*/)) <= 0)
+				if ((pipeDescr = open(inputPipeName.c_str(), O_RDONLY | O_NONBLOCK)) <= 0)
 					throw AccumException(AccumException::OPEN_IPIPE_ERR);
 
-	/*			dprint("Go go go!");
+				dprint("Go go go!");
 				FD_ZERO(&set);
 				FD_SET(pipeDescr, &set);
-				timeout.tv_sec = 5;
+				timeout.tv_sec = 10;
 				timeout.tv_usec = 0;
 
+				bool timeOutFlag = false;
 				bytesNumber = select(pipeDescr + 1, &set, NULL, NULL, &timeout);
 				if (bytesNumber == -1) // error
 				{
-					dprint("error!!!");
-					// error
-					// break
+					dprint("error!!!__!__!");
+					throw AccumException::SELECT_ERR;
 				}
 				else if (bytesNumber == 0) // timeout
 				{
-					// error
-					// restart workProgram
-					// break
 					dprint("Timeout!!!");
-				}*/
-
-				bytesNumber = read(pipeDescr, message, BUFSIZE);
-				message[bytesNumber] = '\0';
-				if (bytesNumber <= 0)
-					throw AccumException(AccumException::READ_PIPE_ERR);
-				close(pipeDescr);
-				dprint("mes from pipe got");
+					strcpy(message, defaultReplyes["timeout"].c_str());
+					dprint(message);
+					bytesNumber = strlen(message);
+					restart = true;
+				}
+				else // normal
+				{
+					bytesNumber = read(pipeDescr, message, BUFSIZE);
+					message[bytesNumber] = '\0';
+					if (bytesNumber <= 0)
+						throw AccumException(AccumException::READ_PIPE_ERR);
+					close(pipeDescr);
+					dprint("mes from pipe got");
+				}
 
 				dprint("sending mes to socket...");
 				// Отправляем клиенту
@@ -411,19 +418,19 @@ void AccumServer::readData(int number)
 	while (true);
 
 	// Убиваем следящий поток
-	stopWatchDog = true;
 	watchDoggy.join();
 
 	dprint("Func 'readData()' stoped");
 }
 
-void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::AccumExc &error)
+void AccumServer::watchDog(int number, bool &restart, AccumException::AccumExc &error)
 {
 	dprint("Func 'watchDog()' started");
 
 	bool run = true;
 	while (run)
 	{
+		error = AccumException::UNDEFINED;
 		pid_t pid = fork();
 
 		mutexProcesses.lock();
@@ -433,6 +440,9 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::Accum
 		if (pid == -1) // Ошибка
 		{
 			error = AccumException::CREAT_CHILD_ERR;
+			mutexClosing.lock();
+			closing = true;
+			mutexClosing.unlock();
 			break;
 		}
 		else if (pid == 0) // Процесс потомок
@@ -440,6 +450,9 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::Accum
 			if (std::string(program).empty())
 			{
 				error = AccumException::NO_WPROGRAM_ERR;
+				mutexClosing.lock();
+				closing = true;
+				mutexClosing.unlock();
 				break;
 			}
 			else
@@ -448,6 +461,9 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::Accum
 				{
 					perror("execv");
 					error = AccumException::START_WPROG_ERR;
+					mutexClosing.lock();
+					closing = true;
+					mutexClosing.unlock();
 					break;
 				}
 			}
@@ -459,6 +475,9 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::Accum
 			if (mkfifo(inputPipeName.c_str(), 0777) or mkfifo(outputPipeName.c_str(), 0777))
 			{
 				error = AccumException::CREAT_PIPE_ERR;
+				mutexClosing.lock();
+				closing = true;
+				mutexClosing.unlock();
 				break;
 			}
 
@@ -489,14 +508,15 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::Accum
 				}
 				mutexClosing.unlock();
 				
-				// Клиент отключился
-				if (stopWatchDog)
+				// Просят перезапустить
+				if (restart)
 				{
 					if (waitpid(pid, NULL, WNOHANG) == 0)
 					{
 						kill(pid, SIGTERM);
 						waitpid(pid, NULL, 0);
 					}
+					restart = false;
 					break;
 				}
 			}

@@ -25,7 +25,7 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 			message += "Called closing server.";
 			break;
 		case DISCONNECT:
-			message += "Disconnected";
+			message += "Disconnected.";
 			break;
 		case DEFAULT_EXC:
 			message += "Other exception.";
@@ -83,6 +83,9 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 			break;
 		case OPEN_OPIPE_ERR:
 			message += "Error occurs on opening output pipe.";
+			break;
+		case SELECT_ERR:
+			message += "Error occurs on select function.";
 			break;
 	}
 
