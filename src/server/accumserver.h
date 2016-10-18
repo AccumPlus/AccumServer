@@ -75,6 +75,10 @@ class AccumServer
 
 		std::vector<pid_t> processes;		// Вектор идентификаторов процессов
 		std::mutex mutexProcesses;			// Мьютекс на изменение вектора идетификаторов процессов
+
+		std::map<int, 
+			std::string> ipClients;			// Словарь ip-адресов клиентов
+		std::mutex mutexIpClients;			// Мьютекс на изменение словаря ip-адресов
 };
 
 #endif

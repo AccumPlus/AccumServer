@@ -251,10 +251,16 @@ void AccumServer::work()
 				mutexClients.unlock();
 			}
 
+			// Записываем ip-адрес
+			mutexIpClients.lock();
+			ipClients[clientSocket] = inet_ntoa(clientAddr.sin_addr);
+			mutexIpClients.unlock();
+
 			// Заполняем очередь клиентов
 			mutexQueue.lock();
 			clientsQueue.push(clientSocket);
 			mutexQueue.unlock();
+
 		}
 	}
 	dprint("Func 'work()' stoped");
@@ -341,6 +347,11 @@ void AccumServer::readData(int number)
 					throw AccumException(AccumException::DISCONNECT);
 				dprint(std::string("mes from socket got: ") + message);
 
+				// Выводим на экран
+				mutexIpClients.lock();
+				std::cout << ipClients[clientSocket] << ":\n" << message << std::endl;
+				mutexIpClients.unlock();
+
 				// Пишем в трубу
 				dprint("sending mes to pipe...");
 				if ((pipeDescr = open(outputPipeName.c_str(), O_WRONLY)) <= 0)
@@ -400,7 +411,11 @@ void AccumServer::readData(int number)
 		}
 		catch (AccumException &e)
 		{
+			mutexIpClients.lock();
+			if (ipClients.count(clientSocket) > 0)
+				std::cout << ipClients[clientSocket] << ":\n";
 			std::cout << e.what() << std::endl;
+			mutexIpClients.unlock();
 		}
 
 		delete[] message;
@@ -411,6 +426,10 @@ void AccumServer::readData(int number)
 		mutexClients.lock();
 		curClientsNum--;
 		mutexClients.unlock();
+
+		mutexIpClients.lock();
+		ipClients.erase(clientSocket);
+		mutexIpClients.unlock();
 
 		if (leaveLoop)
 			break;
