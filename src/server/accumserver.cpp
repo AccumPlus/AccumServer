@@ -261,57 +261,55 @@ void AccumServer::readData(int number)
 	dprint("Func 'readData()' started");
 	// Запускаем watchDog-а
 	bool stopWatchDog = false;
-	int watchDogError = -1;
+	AccumException::AccumExc watchDogError = AccumException::UNDEFINED;
 	std::thread watchDoggy = std::thread(&AccumServer::watchDog, this, number, std::ref(stopWatchDog), std::ref(watchDogError));
 
-	// Ждём какой-то реакции от WatchDog-а
-	while (watchDogError == -1){;}
+	bool leaveLoop = false;
 
 	do
 	{
-		int error = 0;
-
 		int clientSocket = 0;
+		char *message = new char[BUFSIZE];
 
-		dprint("Waiting for connection...");
-		// Ожидаем заполнение очереди
-		while (true)
+		try
 		{
-			mutexQueue.lock();
-			mutexClosing.lock();
-			mutexOpened.lock();
-			
-			if (clientsQueue.size() > 0 && !closing && opened)
+			dprint("Waiting for connection...");
+			// Ожидаем заполнение очереди
+			while (true)
 			{
-				clientSocket = clientsQueue.front();
-				clientsQueue.pop();
+				mutexQueue.lock();
+				mutexClosing.lock();
+				mutexOpened.lock();
+				
+				if (clientsQueue.size() > 0 && !closing && opened)
+				{
+					clientSocket = clientsQueue.front();
+					clientsQueue.pop();
 
+					mutexClosing.unlock();
+					mutexOpened.unlock();
+					mutexQueue.unlock();
+					break;
+				}
+				else if (closing || !opened) // Сервер закрывается
+				{
+					mutexQueue.unlock();
+					mutexClosing.unlock();
+					mutexOpened.unlock();
+					leaveLoop = true;
+					throw AccumException(AccumException::CLOSE_SERV);
+				}
+
+				mutexQueue.unlock();
 				mutexClosing.unlock();
 				mutexOpened.unlock();
-				mutexQueue.unlock();
-				break;
-			}
-			else if (closing || !opened) // Сервер закрывается
-			{
-				error = 11;
-				mutexQueue.unlock();
-				mutexClosing.unlock();
-				mutexOpened.unlock();
-				break;
 			}
 
-			mutexQueue.unlock();
-			mutexClosing.unlock();
-			mutexOpened.unlock();
-		}
+			// Ждём какой-то реакции от WatchDog-а
+			while (watchDogError == AccumException::UNDEFINED){;}
+			if (watchDogError != AccumException::NO_ERR)
+				throw AccumException((AccumException::AccumExc)watchDogError);
 
-		if (error == 0)
-			error = watchDogError;
-
-		dprint(error);
-
-		if (error == 0)
-		{
 			// Получаем идентификатор процесса
 			pid_t pid;
 
@@ -322,8 +320,9 @@ void AccumServer::readData(int number)
 			std::string inputPipeName{pipePath + "/outputPipe_" + std::to_string(pid)};
 			std::string outputPipeName{pipePath + "/inputPipe_" + std::to_string(pid)};
 			
-			char *message = new char[BUFSIZE];
 			int pipeDescr = 0;
+			struct timeval timeout;
+			fd_set set;
 			// Вечный цикл обмена
 			while (true)
 			{
@@ -335,41 +334,50 @@ void AccumServer::readData(int number)
 				bytesNumber = recv(clientSocket, message, BUFSIZE - 1, 0);
 				message[bytesNumber] = '\0';
 				if (bytesNumber <= 0 || bytesNumber > BUFSIZE - 1)
-				{
-					error = 6;
-					break;
-				}
+					throw AccumException(AccumException::DISCONNECT);
 				dprint(std::string("mes from socket got: ") + message);
 
+				// Пишем в трубу
 				dprint("sending mes to pipe...");
 				if ((pipeDescr = open(outputPipeName.c_str(), O_WRONLY)) <= 0)
-				{
-					error = 5;
-					break;
-				}
+					throw AccumException(AccumException::OPEN_OPIPE_ERR);
 				bytesNumber = write(pipeDescr, message, strlen(message));
 				if (bytesNumber <= 0)
-				{
-					error = 7;
-					break;
-				}
+					throw AccumException(AccumException::WRITE_PIPE_ERR);
 				close(pipeDescr);
 				dprint("mes to pipe sent");
 
+				// Читаем трубу
 				dprint("getting mes from pipe...");
 				message[0] = '\0';
-				if ((pipeDescr = open(inputPipeName.c_str(), O_RDONLY)) <= 0)
+				if ((pipeDescr = open(inputPipeName.c_str(), O_RDONLY/* | O_NONBLOCK*/)) <= 0)
+					throw AccumException(AccumException::OPEN_IPIPE_ERR);
+
+	/*			dprint("Go go go!");
+				FD_ZERO(&set);
+				FD_SET(pipeDescr, &set);
+				timeout.tv_sec = 5;
+				timeout.tv_usec = 0;
+
+				bytesNumber = select(pipeDescr + 1, &set, NULL, NULL, &timeout);
+				if (bytesNumber == -1) // error
 				{
-					error = 10;
-					break;
+					dprint("error!!!");
+					// error
+					// break
 				}
+				else if (bytesNumber == 0) // timeout
+				{
+					// error
+					// restart workProgram
+					// break
+					dprint("Timeout!!!");
+				}*/
+
 				bytesNumber = read(pipeDescr, message, BUFSIZE);
 				message[bytesNumber] = '\0';
 				if (bytesNumber <= 0)
-				{
-					error = 8;
-					break;
-				}
+					throw AccumException(AccumException::READ_PIPE_ERR);
 				close(pipeDescr);
 				dprint("mes from pipe got");
 
@@ -377,82 +385,19 @@ void AccumServer::readData(int number)
 				// Отправляем клиенту
 				bytesNumber = send(clientSocket, message, bytesNumber, 0);
 				if (bytesNumber <= 0)
-				{
-					error = 9;
-					break;
-				}
+					throw AccumException(AccumException::SEND_SOCK_ERR);
 				dprint("mes to socket sent");
 			}
 			dprint("exchange loop out!");
 
-			delete[] message;
-			message = 0;
+		}
+		catch (AccumException &e)
+		{
+			std::cout << e.what() << std::endl;
 		}
 
-		switch(error)
-		{
-			case 0:{
-				// По-хорошему, сюда не должно попасть никогда
-				std::cout << "Normal exit.";
-				break;
-			}
-			case 1:{
-				std::cout << "Error occurs while creating child process.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs while creating child process.");
-				break;
-			}
-			case 2:{
-				std::cout << "Work program is not defined in settings.";
-				AccumLog::writeLog(AccumLog::ERR, "Work program is not defined in settings.");
-				break;
-			}
-			case 3:{
-				std::cout << "Error occurs on starting work program.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs on starting work program.");
-				break;
-			}
-			case 4:{
-				std::cout << "Error occurs on creating pipe.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs on creating pipe.");
-				break;
-			}
-			case 5:{
-				std::cout << "Error occurs on opening output pipe.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs on opening output pipe.");
-				break;
-			}
-			case 6:{
-				// Нормальный выход
-				std::cout << "Disconnected.";
-				break;
-			}
-			case 7:{
-				std::cout << "Error occurs while writing data through pipe.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs while writing data through pipe.");
-				break;
-			}
-			case 8:{
-				std::cout << "Error occurs while reading data through pipe.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs while reading data through pipe.");
-				break;
-			}
-			case 9:{
-				std::cout << "Error occurs on sending data to client.";
-				AccumLog::writeLog(AccumLog::WAR, "Error occurs on sending data to client.");
-				break;
-			}
-			case 10:{
-				std::cout << "Error occurs on opening input pipe.";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs on opening input pipe.");
-				break;
-			}
-			case 11:{
-				// Единственный выход из верхнего цикла
-				std::cout << "Program was closed before any client connected!";
-				AccumLog::writeLog(AccumLog::ERR, "Error occurs on opening input pipe.");
-				break;
-			}
-		}
+		delete[] message;
+		message = 0;
 
 		close(clientSocket);
 
@@ -460,7 +405,7 @@ void AccumServer::readData(int number)
 		curClientsNum--;
 		mutexClients.unlock();
 
-		if (error == 11)
+		if (leaveLoop)
 			break;
 	}
 	while (true);
@@ -472,7 +417,7 @@ void AccumServer::readData(int number)
 	dprint("Func 'readData()' stoped");
 }
 
-void AccumServer::watchDog(int number, bool &stopWatchDog, int &error)
+void AccumServer::watchDog(int number, bool &stopWatchDog, AccumException::AccumExc &error)
 {
 	dprint("Func 'watchDog()' started");
 
@@ -487,14 +432,14 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, int &error)
 
 		if (pid == -1) // Ошибка
 		{
-			error = 1;
+			error = AccumException::CREAT_CHILD_ERR;
 			break;
 		}
 		else if (pid == 0) // Процесс потомок
 		{
 			if (std::string(program).empty())
 			{
-				error = 2;
+				error = AccumException::NO_WPROGRAM_ERR;
 				break;
 			}
 			else
@@ -502,7 +447,7 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, int &error)
 				if (execv(program, args) == -1)
 				{
 					perror("execv");
-					error = 3;
+					error = AccumException::START_WPROG_ERR;
 					break;
 				}
 			}
@@ -513,11 +458,11 @@ void AccumServer::watchDog(int number, bool &stopWatchDog, int &error)
 			std::string outputPipeName{pipePath + "/inputPipe_" + std::to_string(pid)};
 			if (mkfifo(inputPipeName.c_str(), 0777) or mkfifo(outputPipeName.c_str(), 0777))
 			{
-				error = 4;
+				error = AccumException::CREAT_PIPE_ERR;
 				break;
 			}
 
-			error = 0;
+			error = AccumException::NO_ERR;
 
 			while (true)
 			{

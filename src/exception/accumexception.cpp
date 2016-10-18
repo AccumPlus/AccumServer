@@ -18,6 +18,15 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 	std::string message("***ACCUMEXCEPTION***: ");
 	switch (exc)
 	{
+		case NO_ERR:
+			message += "No error.";
+			break;
+		case CLOSE_SERV:
+			message += "Called closing server.";
+			break;
+		case DISCONNECT:
+			message += "Disconnected";
+			break;
 		case DEFAULT_EXC:
 			message += "Other exception.";
 			break;
@@ -48,7 +57,33 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 		case FILE_NEXS_EXC:
 			message += "File not exists.";
 			break;
-			
+		case CREAT_CHILD_ERR:
+			message += "Error occurs while creating child process.";
+			break;
+		case NO_WPROGRAM_ERR:
+			message += "Work program is not defined in settings.";
+			break;
+		case START_WPROG_ERR:
+			message += "Error occurs on starting work program.";
+			break;
+		case CREAT_PIPE_ERR:
+			message += "Error occurs on creating pipe.";
+			break;
+		case OPEN_IPIPE_ERR:
+			message += "Error occurs on opening input pipe.";
+			break;
+		case WRITE_PIPE_ERR:
+			message += "Error occurs while writing data through pipe.";
+			break;
+		case READ_PIPE_ERR:
+			message += "Error occurs while reading data through pipe.";
+			break;
+		case SEND_SOCK_ERR:
+			message += "Error occurs on sending data to client.";
+			break;
+		case OPEN_OPIPE_ERR:
+			message += "Error occurs on opening output pipe.";
+			break;
 	}
 
 	if (exc == DEFAULT_EXC)

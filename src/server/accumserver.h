@@ -38,7 +38,7 @@ class AccumServer
 		// Функция обработки клиентских запросов
 		void readData(int number);
 		// Функция слежки за рабочим приложением
-		void watchDog(int number, bool &stopWatchDog, int &error);	
+		void watchDog(int number, bool &stopWatchDog, AccumException::AccumExc &error);
 		// Функция закрытия сервера
 		void closingServer();
 
