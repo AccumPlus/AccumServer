@@ -35,10 +35,12 @@ class AccumException: public std::exception
 		};
 		AccumException(AccumExc exc);
 		virtual const char* what() const noexcept;
+		AccumExc getCode() const;
 		~AccumException();
 	private:
 		std::string getExcMessage(AccumExc exc) const;
 		std::string error;
+		AccumExc code;
 };
 
 #endif

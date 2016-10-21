@@ -44,7 +44,7 @@ class AccumServer
 		void closingServer();
 
 		// Перменная, хранящая размер буфера для сообщений
-		unsigned short BUFSIZE;
+		unsigned int BUFSIZE;
 
 		// === ХАРАКТЕРИСТИКИ СЕРВЕРА ===
 		int sockDescr;						// Дескриптор сервер-сокета

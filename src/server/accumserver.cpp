@@ -17,8 +17,8 @@
 AccumServer::AccumServer():
 	maxClientsNum{1}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}, reuseAddr{0}, logfile{""}, curClientsNum{0}
 {
-	BUFSIZE = 0;
-	BUFSIZE -= 2;
+	BUFSIZE = 5242880; // 5 Mb
+	//BUFSIZE -= 2;
 }
 
 AccumServer::~AccumServer()
@@ -158,10 +158,13 @@ int AccumServer::openServer() throw (AccumException)
 
 	opened = true;
 
+
 	// Запускаем поток с рабочей функцией
 	std::thread workingThread = std::thread(&AccumServer::work, this);
 
 	std::cout << "Started at " << ipAddress << ':' << port << std::endl << std::endl;
+
+	AccumLog::writeLog(AccumLog::INF, std::string("Server was started at ") + ipAddress + ':' + std::to_string(port) + '!');
 
 	// Ждём, пока кто-либо не поставит closing в true
 	while (true)
@@ -276,10 +279,12 @@ void AccumServer::readData(int number)
 
 	bool leaveLoop = false;
 
+	int clientSocket;
+	char *message = new char[BUFSIZE];
+	
 	do
 	{
-		int clientSocket = 0;
-		char *message = new char[BUFSIZE];
+		clientSocket = 0;
 
 		try
 		{
@@ -290,9 +295,11 @@ void AccumServer::readData(int number)
 				mutexQueue.lock();
 				mutexClosing.lock();
 				mutexOpened.lock();
+
 				
 				if (clientsQueue.size() > 0 && !closing && opened)
 				{
+					dprint("Client was catched!");
 					clientSocket = clientsQueue.front();
 					clientsQueue.pop();
 
@@ -303,16 +310,30 @@ void AccumServer::readData(int number)
 				}
 				else if (closing || !opened) // Сервер закрывается
 				{
+					dprint("Read function closing.......!");
 					mutexQueue.unlock();
 					mutexClosing.unlock();
 					mutexOpened.unlock();
 					leaveLoop = true;
-					throw AccumException(AccumException::CLOSE_SERV);
+					break;
+	//				throw AccumException(AccumException::CLOSE_SERV);
 				}
+
+				/*dprint("closing:");
+				dprint(closing);
+				dprint("opened:");
+				dprint(opened);
+				sleep(1);*/
 
 				mutexQueue.unlock();
 				mutexClosing.unlock();
 				mutexOpened.unlock();
+			}
+
+			if (leaveLoop)
+			{
+				std::cout << "Read function ended by closing server!" << std::endl;
+				break;
 			}
 
 			// Ждём какой-то реакции от WatchDog-а
@@ -344,12 +365,19 @@ void AccumServer::readData(int number)
 				bytesNumber = recv(clientSocket, message, BUFSIZE - 1, 0);
 				message[bytesNumber] = '\0';
 				if (bytesNumber <= 0 || bytesNumber > BUFSIZE - 1)
-					throw AccumException(AccumException::DISCONNECT);
+				{
+					mutexIpClients.lock();
+					std::cout << ipClients[clientSocket] << ":\n" << "Disconnected!" << std::endl;
+					mutexIpClients.unlock();
+					break;
+	//				throw AccumException(AccumException::DISCONNECT);
+				}
 				dprint(std::string("mes from socket got: ") + message);
 
 				// Выводим на экран
 				mutexIpClients.lock();
 				std::cout << ipClients[clientSocket] << ":\n" << message << std::endl;
+				AccumLog::writeLog(AccumLog::INF, std::string("Data from ") + ipClients[clientSocket] + ": " + message);
 				mutexIpClients.unlock();
 
 				// Пишем в трубу
@@ -412,14 +440,19 @@ void AccumServer::readData(int number)
 		catch (AccumException &e)
 		{
 			mutexIpClients.lock();
+			std::string mes = {""};
 			if (ipClients.count(clientSocket) > 0)
-				std::cout << ipClients[clientSocket] << ":\n";
-			std::cout << e.what() << std::endl;
+				mes += ipClients[clientSocket] + ":\n";
+			std::cout << mes + e.what() << std::endl;
+			if (e.getCode() == AccumException::NO_ERR ||
+					e.getCode() == AccumException::CLOSE_SERV ||
+					e.getCode() == AccumException::DISCONNECT)
+				AccumLog::writeLog(AccumLog::INF, mes + e.what());
+			else
+				AccumLog::writeLog(AccumLog::ERR, mes + e.what());
 			mutexIpClients.unlock();
 		}
 
-		delete[] message;
-		message = 0;
 
 		close(clientSocket);
 
@@ -431,12 +464,15 @@ void AccumServer::readData(int number)
 		ipClients.erase(clientSocket);
 		mutexIpClients.unlock();
 
-		if (leaveLoop)
-			break;
+	/*	if (leaveLoop)
+			break;*/
 	}
 	while (true);
 
-	// Убиваем следящий поток
+	delete[] message;
+	message = 0;
+
+	// Ждём завершение следящего потока
 	watchDoggy.join();
 
 	dprint("Func 'readData()' stoped");
@@ -583,6 +619,7 @@ void AccumServer::closingServer()
 		closing = false;
 
 		std::cout << "Done." << std::endl;
+		AccumLog::writeLog(AccumLog::INF, std::string("Server was closed!"));
 	}
 	dprint("Func 'closingServer()' stoped");
 }

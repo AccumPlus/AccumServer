@@ -4,7 +4,7 @@
 #include "accumexception.h"
 
 AccumException::AccumException(AccumExc exc):
-	error(getExcMessage(exc))
+	error(getExcMessage(exc)), code(exc)
 {
 }
 
@@ -100,4 +100,9 @@ std::string AccumException::getExcMessage(AccumExc exc) const
 
 AccumException::~AccumException()
 {
+}
+
+AccumException::AccumExc AccumException::getCode() const
+{
+	return code;
 }
