@@ -611,6 +611,7 @@ void AccumServer::closingServer()
 		}
 		closedir(pipeFolder);
 		// Отключаем систему логов
+		AccumLog::writeLog(AccumLog::INF, std::string("Server was closed!"));
 		if (!logfile.empty())
 			AccumLog::stop();
 		// Даём watchDog-ам пару секунд, чтоб всё вырубили
@@ -619,7 +620,6 @@ void AccumServer::closingServer()
 		closing = false;
 
 		std::cout << "Done." << std::endl;
-		AccumLog::writeLog(AccumLog::INF, std::string("Server was closed!"));
 	}
 	dprint("Func 'closingServer()' stoped");
 }
