@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <fstream>
 
 #include "globals.h"
 #include "server/accumserver.h"
@@ -72,6 +73,12 @@ int main(int argc, char**argv)
 				}
 				else // Родитель - watchDog
 				{
+					// Сохраняем pid в файл, чтобы потом его использовать через интерфейс
+					std::fstream stream;
+					stream.open("serverpid", std::ios_base::out | std::ios_base::trunc);
+					stream << pid;
+					stream.close();
+
 					dprint(std::string("child pid = ") + std::to_string(pid));
 					struct sigaction signalHandler;
 					signalHandler.sa_handler = catchParSig;
@@ -107,7 +114,7 @@ int main(int argc, char**argv)
 							}
 						}
 					}
-					else // Завершился без return-а (Жёсткая ошибка). Пробуем вылечить перезапуском.
+					else // Завершился без return-а (Жёсткая ошибка, либо насильный перезапуск). Пробуем вылечить перезапуском.
 					{
 						stop = false;
 					}
@@ -121,6 +128,13 @@ int main(int argc, char**argv)
 	}
 	else
 	{
+		dprint("simple");
+		// Сохраняем pid в файл, чтобы потом его использовать через интерфейс
+		std::fstream stream;
+		stream.open("serverpid", std::ios_base::out | std::ios_base::trunc);
+		stream << getpid();
+		stream.close();
+
 		return run();
 	}
 	

@@ -43,6 +43,9 @@ class AccumServer
 		// Функция закрытия сервера
 		void closingServer();
 
+		// Функция заполнения файла с идентификаторами
+		void updateProcesses();
+
 		// Перменная, хранящая размер буфера для сообщений
 		unsigned int BUFSIZE;
 
