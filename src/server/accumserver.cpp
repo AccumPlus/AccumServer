@@ -341,15 +341,12 @@ void AccumServer::readData(int number)
 			if (watchDogError != AccumException::NO_ERR)
 				throw AccumException((AccumException::AccumExc)watchDogError);
 
-			// Получаем идентификатор процесса
+			// Идентификатор процесса
 			pid_t pid;
 
-			mutexProcesses.lock();
-			pid = processes[number];
-			mutexProcesses.unlock();
 			// Названия труб
-			std::string inputPipeName{pipePath + "/outputPipe_" + std::to_string(pid)};
-			std::string outputPipeName{pipePath + "/inputPipe_" + std::to_string(pid)};
+			std::string inputPipeName;
+			std::string outputPipeName;
 			
 			int pipeDescr = 0;
 			struct timeval timeout;
@@ -359,26 +356,86 @@ void AccumServer::readData(int number)
 			{
 				int bytesNumber = 0;
 
-				// Читаем клиента
-				dprint("getting mes from socket...");
-				message[0] = '\0';
-				bytesNumber = recv(clientSocket, message, BUFSIZE - 1, 0);
-				message[bytesNumber] = '\0';
+				/* Новое чтение */
+				// Настраиваем таймер
+
+				while (1)
+				{
+					FD_ZERO(&set);
+					FD_SET(clientSocket, &set);
+					timeout.tv_sec = 2;
+					timeout.tv_usec = 0;
+					// Ждём изменений на сокете
+					bytesNumber = select(clientSocket + 1, &set, NULL, NULL, &timeout);
+					if (bytesNumber == -1) // error
+					{
+						dprint("error!!!__!__!");
+						throw AccumException::SELECT_ERR;
+					}
+					else if (bytesNumber == 0) // timeout
+					{
+						mutexClosing.lock();
+						mutexOpened.lock();
+
+						if (closing || !opened) // Сервер закрывается
+						{
+							leaveLoop = true;
+							mutexClosing.unlock();
+							mutexOpened.unlock();
+							break;
+						}
+
+						mutexClosing.unlock();
+						mutexOpened.unlock();
+					}
+					else // normal
+					{
+						bytesNumber = recv(clientSocket, message, BUFSIZE - 1, 0);
+						message[bytesNumber] = '\0';
+						break;
+					}
+				}
+
 				if (bytesNumber <= 0 || bytesNumber > BUFSIZE - 1)
 				{
 					mutexIpClients.lock();
 					std::cout << ipClients[clientSocket] << ":\n" << "Disconnected!" << std::endl;
 					mutexIpClients.unlock();
 					break;
-	//				throw AccumException(AccumException::DISCONNECT);
 				}
 				dprint(std::string("mes from socket got: ") + message);
+
+				if (leaveLoop)
+					break;
+
+				// Читаем клиента
+	/*			dprint("getting mes from socket...");
+				message[0] = '\0';
+				bytesNumber = recv(clientSocket, message, BUFSIZE - 1, 0);
+				dprint(std::string("mes from socket got: ") + message);
+				message[bytesNumber] = '\0';
+				dprint(bytesNumber);
+				if (bytesNumber <= 0 || bytesNumber > BUFSIZE - 1)
+				{
+					mutexIpClients.lock();
+					std::cout << ipClients[clientSocket] << ":\n" << "Disconnected!" << std::endl;
+					mutexIpClients.unlock();
+					break;
+				}
+				dprint(std::string("mes from socket got: ") + message);*/
 
 				// Выводим на экран
 				mutexIpClients.lock();
 				std::cout << ipClients[clientSocket] << ":\n" << message << std::endl;
 				AccumLog::writeLog(AccumLog::INF, std::string("Data from ") + ipClients[clientSocket] + ": " + message);
 				mutexIpClients.unlock();
+
+				// Получаем названия труб
+				mutexProcesses.lock();
+				pid = processes[number];
+				mutexProcesses.unlock();
+				inputPipeName = pipePath + "/outputPipe_" + std::to_string(pid);
+				outputPipeName = pipePath + "/inputPipe_" + std::to_string(pid);
 
 				// Пишем в трубу
 				dprint("sending mes to pipe...");
@@ -402,7 +459,7 @@ void AccumServer::readData(int number)
 				timeout.tv_sec = 10;
 				timeout.tv_usec = 0;
 
-				bool timeOutFlag = false;
+	//			bool timeOutFlag = false;
 				bytesNumber = select(pipeDescr + 1, &set, NULL, NULL, &timeout);
 				if (bytesNumber == -1) // error
 				{

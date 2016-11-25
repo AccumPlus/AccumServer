@@ -24,7 +24,7 @@ make install build_type=release
 
 ### Смена каталога сборки по умолчанию
 
-Для изменения каталога сборки укажите переменную bin:
+Для изменения каталога сборки укажите переменную bin_dir:
 ```
 make install bin_dir=/other/directory
 ```
