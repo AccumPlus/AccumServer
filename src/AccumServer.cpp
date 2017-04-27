@@ -10,9 +10,9 @@
 #include <signal.h>
 #include <dirent.h>
 
-#include <globals.h>
+#include "globals.h"
 
-#include "accumserver.h"
+#include "AccumServer.h"
 
 AccumServer::AccumServer():
 	maxClientsNum{1}, ipAddress{""}, port{0}, sockDescr{0}, opened{false}, program{0}, args{0}, closing{false}, reuseAddr{0}, logfile{""}, curClientsNum{0}

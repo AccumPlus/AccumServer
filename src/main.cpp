@@ -1,5 +1,4 @@
 #include <iostream>
-#include <json.hpp>
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/wait.h>
@@ -7,8 +6,9 @@
 #include <fstream>
 
 #include "globals.h"
-#include "server/accumserver.h"
-#include "exception/accumexception.h"
+#include "AccumException/accumexception.h"
+#include "json.hpp"
+#include "AccumServer.h"
 
 void catchChildSig(int s);
 
@@ -24,7 +24,7 @@ bool stop = false;
 
 int main(int argc, char**argv)
 {
-	std::cout << "=== AccumServer ===" << std::endl << "Version: " << VERSION << std::endl;
+	std::cout << "=== AccumServer ===" << std::endl;// << "Version: " << VERSION << std::endl;
 	bool daemon = false;
 
 	if (argc > 1)

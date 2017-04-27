@@ -1,4 +1,4 @@
-#include <globals.h>
+#include "../globals.h"
 #include <errno.h>
 
 #include "accumexception.h"

@@ -14,9 +14,9 @@
 #include <queue>
 #include <map>
 
-#include <exception/accumexception.h>
-#include <log/accumlog.h>
-#include <json.hpp>
+#include "AccumException/accumexception.h"
+#include "AccumLog/accumlog.h"
+#include "json.hpp"
 
 class AccumServer
 {
